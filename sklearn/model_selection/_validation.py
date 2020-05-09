@@ -37,6 +37,7 @@ from ..preprocessing import LabelEncoder
 __all__ = ['cross_validate', 'cross_val_score', 'cross_val_predict',
            'permutation_test_score', 'learning_curve', 'validation_curve']
 
+SCORING_FIT_PARAMS = ['eval_sample_weight','sample_weight']
 
 @_deprecate_positional_args
 def cross_validate(estimator, X, y=None, *, groups=None, scoring=None, cv=None,
@@ -411,7 +412,7 @@ def _fit_and_score(estimator, X, y, scorer, train, test, verbose,
                    parameters, fit_params, return_train_score=False,
                    return_parameters=False, return_n_test_samples=False,
                    return_times=False, return_estimator=False,
-                   error_score=np.nan):
+                   error_score=np.nan, use_eval_weight=False):
     """Fit estimator and compute scores for a given dataset split.
 
     Parameters
@@ -456,6 +457,10 @@ def _fit_and_score(estimator, X, y, scorer, train, test, verbose,
 
     fit_params : dict or None
         Parameters that will be passed to ``estimator.fit``.
+
+    use_eval_weight : bool, default=False
+        Compute test fold using ``eval_sample_weight`` or ``sample_weight``
+        with that priority.
 
     return_train_score : bool, default=False
         Compute and return score on training set.
@@ -524,6 +529,17 @@ def _fit_and_score(estimator, X, y, scorer, train, test, verbose,
     X_train, y_train = _safe_split(estimator, X, y, train)
     X_test, y_test = _safe_split(estimator, X, y, test, train)
 
+    # extract eval weights
+    eval_weight = None
+    if use_eval_weight:
+        eval_weight_field = None
+        for candidate_weight in reversed(SCORING_FIT_PARAMS):
+            if candidate_weight in fit_params.keys():
+                eval_weight_field = candidate_weight
+        if eval_weight_field is not None:
+            eval_weight = _check_fit_params(X, fit_params, test)[eval_weight]
+
+
     try:
         if y_train is None:
             estimator.fit(X_train, **fit_params)
@@ -557,10 +573,10 @@ def _fit_and_score(estimator, X, y, scorer, train, test, verbose,
 
     else:
         fit_time = time.time() - start_time
-        test_scores = _score(estimator, X_test, y_test, scorer)
+        test_scores = _score(estimator, X_test, y_test, scorer, eval_weight=eval_weight)
         score_time = time.time() - start_time - fit_time
         if return_train_score:
-            train_scores = _score(estimator, X_train, y_train, scorer)
+            train_scores = _score(estimator, X_train, y_train, scorer, eval_weight=eval_weight)
     if verbose > 2:
         if isinstance(test_scores, dict):
             for scorer_name in sorted(test_scores):
@@ -592,7 +608,7 @@ def _fit_and_score(estimator, X, y, scorer, train, test, verbose,
     return ret
 
 
-def _score(estimator, X_test, y_test, scorer):
+def _score(estimator, X_test, y_test, scorer, eval_weight=None):
     """Compute the score(s) of an estimator on a given test set.
 
     Will return a dict of floats if `scorer` is a dict, otherwise a single
@@ -602,9 +618,15 @@ def _score(estimator, X_test, y_test, scorer):
         # will cache method calls if needed. scorer() returns a dict
         scorer = _MultimetricScorer(**scorer)
     if y_test is None:
-        scores = scorer(estimator, X_test)
+        if eval_weight is not None:
+            scores = scorer(estimator, X_test, sample_weight=eval_weight)
+        else:
+            scores = scorer(estimator, X_test)
     else:
-        scores = scorer(estimator, X_test, y_test)
+        if eval_weight is not None:
+            scores = scorer(estimator, X_test, y_test, sample_weight=eval_weight)
+        else:
+            scores = scorer(estimator, X_test, y_test)
 
     error_msg = ("scoring must return a number, got %s (%s) "
                  "instead. (scorer=%s)")

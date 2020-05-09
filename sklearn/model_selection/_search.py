@@ -625,7 +625,7 @@ class BaseSearchCV(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta):
         raise NotImplementedError("_run_search not implemented.")
 
     @_deprecate_positional_args
-    def fit(self, X, y=None, *, groups=None, **fit_params):
+    def fit(self, X, y=None, *, groups=None, use_eval_weight=False, **fit_params):
         """Run fit with all sets of parameters.
 
         Parameters
@@ -709,6 +709,7 @@ class BaseSearchCV(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta):
                                                        X, y,
                                                        train=train, test=test,
                                                        parameters=parameters,
+                                                       use_eval_weight=use_eval_weight,
                                                        **fit_and_score_kwargs)
                                for parameters, (train, test)
                                in product(candidate_params,
