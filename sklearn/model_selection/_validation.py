@@ -494,6 +494,13 @@ def _fit_and_score(estimator, X, y, scorer, train, test, verbose,
 
     # Adjust length of sample weights
     fit_params = fit_params if fit_params is not None else {}
+
+    # extract eval weights
+    eval_weight_train, eval_weight_test = None, None
+    if SCORING_FIT_PARAM in fit_params:
+        eval_weight_train = _check_fit_params(X, fit_params, train)[SCORING_FIT_PARAM]
+        eval_weight_test  = _check_fit_params(X, fit_params, test)[SCORING_FIT_PARAM]
+
     fit_params = _check_fit_params(X, fit_params, train)
 
     train_scores = {}
@@ -511,12 +518,6 @@ def _fit_and_score(estimator, X, y, scorer, train, test, verbose,
 
     X_train, y_train = _safe_split(estimator, X, y, train)
     X_test, y_test = _safe_split(estimator, X, y, test, train)
-
-    # extract eval weights
-    eval_weight_train, eval_weight_test = None, None
-    if SCORING_FIT_PARAM in fit_params:
-        eval_weight_train = fit_params[SCORING_FIT_PARAM]
-        eval_weight_test  = _check_fit_params(X, fit_params, test)[SCORING_FIT_PARAM]
 
     try:
         if y_train is None:
