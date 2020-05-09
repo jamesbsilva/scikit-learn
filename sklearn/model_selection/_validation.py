@@ -37,7 +37,7 @@ from ..preprocessing import LabelEncoder
 __all__ = ['cross_validate', 'cross_val_score', 'cross_val_predict',
            'permutation_test_score', 'learning_curve', 'validation_curve']
 
-SCORING_FIT_PARAMS = ['eval_sample_weight','sample_weight']
+SCORING_FIT_PARAM = 'eval_sample_weight'
 
 @_deprecate_positional_args
 def cross_validate(estimator, X, y=None, *, groups=None, scoring=None, cv=None,
@@ -412,7 +412,7 @@ def _fit_and_score(estimator, X, y, scorer, train, test, verbose,
                    parameters, fit_params, return_train_score=False,
                    return_parameters=False, return_n_test_samples=False,
                    return_times=False, return_estimator=False,
-                   error_score=np.nan, use_eval_weight=False):
+                   error_score=np.nan):
     """Fit estimator and compute scores for a given dataset split.
 
     Parameters
@@ -531,14 +531,8 @@ def _fit_and_score(estimator, X, y, scorer, train, test, verbose,
 
     # extract eval weights
     eval_weight = None
-    if use_eval_weight:
-        eval_weight_field = None
-        for candidate_weight in reversed(SCORING_FIT_PARAMS):
-            if candidate_weight in fit_params.keys():
-                eval_weight_field = candidate_weight
-        if eval_weight_field is not None:
-            eval_weight = _check_fit_params(X, fit_params, test)[eval_weight]
-
+    if SCORING_FIT_PARAM in fit_params:
+        eval_weight = _check_fit_params(X, fit_params, test)[SCORING_FIT_PARAM]
 
     try:
         if y_train is None:
